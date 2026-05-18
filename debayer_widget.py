@@ -228,6 +228,7 @@ class DebayerWidget(QWidget):
             if img is not None:
                 self._source.set_frame(indices[0], self._debayer_frame(img))
 
+        self._chk_preview.setChecked(False)
         self._previewing = False
         new_img = self._source.get_frame(self._frame_idx, copy=False)
         if new_img is not None:

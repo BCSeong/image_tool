@@ -339,8 +339,22 @@ class MainWindow(QMainWindow):
         self._after_load(n)
 
     def _after_load(self, n: int) -> None:
+        if self._bc_widget is not None:
+            self._bc_widget.cleanup()
+            self._bc_widget = None
+            self._bc_dock.hide()
+        if self._debayer_widget is not None:
+            self._debayer_widget.cleanup()
+            self._debayer_widget = None
+            self._demosaic_dock.hide()
+        if self._offset_widget is not None:
+            self._offset_widget.cleanup()
+            self._offset_widget = None
+            self._offset_dock.hide()
         self._viewer._auto_min = None
         self._viewer._auto_max = None
+        self._viewer._display_min = None
+        self._viewer._display_max = None
         self._slider.setMaximum(max(n - 1, 0))
         self._frame_spin.setMaximum(max(n - 1, 0))
         self._slider.setValue(0)
