@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import fnmatch
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -99,7 +100,7 @@ class FolderWizard(QDialog):
         text_row = QHBoxLayout()
         text_row.addWidget(QLabel("Name contains:"))
         self._text_filter = QLineEdit()
-        self._text_filter.setPlaceholderText("(optional) e.g. frame, depth, rgb")
+        self._text_filter.setPlaceholderText("(optional) e.g. frame, GD*002 (* = wildcard)")
         text_row.addWidget(self._text_filter, stretch=1)
         vf.addLayout(text_row)
 
@@ -215,7 +216,13 @@ class FolderWizard(QDialog):
             if p.is_file() and p.suffix.lower() in exts
         ]
         if text:
-            all_files = [p for p in all_files if text in p.stem.lower()]
+            if '*' in text or '?' in text:
+                pattern = f"*{text}*" if not text.startswith('*') else text
+                pattern = f"{pattern}*" if not pattern.endswith('*') else pattern
+                all_files = [p for p in all_files
+                             if fnmatch.fnmatch(p.stem.lower(), pattern)]
+            else:
+                all_files = [p for p in all_files if text in p.stem.lower()]
 
         if sort_idx == 0:
             all_files.sort(key=lambda p: p.name)
