@@ -674,7 +674,8 @@ class MainWindow(QMainWindow):
             idx = self._slider.value()
             img = self._source.get_frame(idx, copy=False)
             if img is not None:
-                cv2.imwrite(str(p), img)
+                if not self._imwrite_safe(p, img, p.suffix):
+                    QMessageBox.warning(self, "Error", f"Failed to save: {p.name}")
 
     def _on_save_sequence(self) -> None:
         if not self._source.is_loaded:
@@ -701,20 +702,51 @@ class MainWindow(QMainWindow):
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
 
+        saved = 0
+        failed: list[str] = []
         for i in range(n):
             if progress.wasCanceled():
                 break
             img = self._source.get_frame(i, copy=False)
             if img is None:
+                failed.append(f"Frame {i}: no data")
                 progress.setValue(i + 1)
                 continue
             frame_name = self._source.frame_name(i) if has_names else ""
             p = dlg.make_path(cfg, i, frame_name)
-            cv2.imwrite(str(p), img)
+            ok = self._imwrite_safe(p, img, ext)
+            if ok:
+                saved += 1
+            else:
+                failed.append(f"Frame {i}: {p.name}")
             progress.setValue(i + 1)
             QApplication.processEvents()
 
         progress.close()
+
+        if failed:
+            detail = "\n".join(failed[:20])
+            if len(failed) > 20:
+                detail += f"\n... and {len(failed) - 20} more"
+            QMessageBox.warning(
+                self, "Save Result",
+                f"Saved {saved}/{n} frames.\n"
+                f"{len(failed)} failed:\n\n{detail}",
+            )
+        else:
+            self.statusBar().showMessage(f"Saved {saved} frames.", 5000)
+
+    @staticmethod
+    def _imwrite_safe(path: Path, img: np.ndarray, ext: str) -> bool:
+        """cv2.imencode + write_bytes로 non-ASCII 경로 안전하게 저장."""
+        try:
+            ok, buf = cv2.imencode(ext, img)
+            if not ok:
+                return False
+            path.write_bytes(buf.tobytes())
+            return True
+        except Exception:
+            return False
 
     def _save_tiff_stack(self, path: Path) -> None:
         n = self._source.frame_count
