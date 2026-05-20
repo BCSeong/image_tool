@@ -361,6 +361,7 @@ class MainWindow(QMainWindow):
         self._frame_spin.setValue(0)
         self._update_frame_label(0)
         self._show_frame(0)
+        self._viewer.fit_view()
         self.setWindowTitle(f"Image Tool - {self._source.display_name}")
         img = self._source.get_frame(0, copy=False)
         if img is not None:
@@ -374,8 +375,6 @@ class MainWindow(QMainWindow):
         if img is None:
             return
         self._viewer.set_image(img)
-        if idx == 0:
-            self._viewer.fit_view()
         if self._active_tool:
             self._active_tool.on_frame_changed(idx, img)
         if self._debayer_widget is not None:
