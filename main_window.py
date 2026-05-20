@@ -221,7 +221,9 @@ class MainWindow(QMainWindow):
         self._toolbar.setMovable(False)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self._toolbar)
         self._tool_action_group = QActionGroup(self)
-        self._tool_action_group.setExclusive(True)
+        self._tool_action_group.setExclusionPolicy(
+            QActionGroup.ExclusionPolicy.ExclusiveOptional
+        )
 
     def _build_dock(self) -> None:
         self._dock = EnhancedDockWidget("Tool Settings", self)
@@ -273,6 +275,7 @@ class MainWindow(QMainWindow):
         self._viewer.mouse_moved.connect(self._on_mouse_moved)
         self._viewer.frame_scroll.connect(self._on_frame_scroll)
         self._viewer.right_clicked.connect(self._on_right_click)
+        self._viewer.escape_pressed.connect(self._deselect_tool)
 
     def _register_tools(self) -> None:
         self.register_tool(RectTool(self._viewer))
@@ -291,6 +294,16 @@ class MainWindow(QMainWindow):
         idx = len(self._tools) - 1
         action.triggered.connect(lambda checked, i=idx: self._on_tool_selected(i, checked))
         self._tool_actions.append(action)
+
+    def _deselect_tool(self) -> None:
+        if self._active_tool:
+            self._active_tool.deactivate()
+            self._viewer.clear_overlays()
+            self._active_tool = None
+            self._viewer.set_active_tool(None)
+            self._dock.hide()
+            for action in self._tool_actions:
+                action.setChecked(False)
 
     def _on_tool_selected(self, idx: int, checked: bool) -> None:
         if self._active_tool:

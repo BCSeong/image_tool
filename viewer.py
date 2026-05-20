@@ -51,6 +51,7 @@ class ImageViewer(QGraphicsView):
     mouse_moved = Signal(int, int, object)  # (img_x, img_y, pixel_value)
     frame_scroll = Signal(int)  # +1 or -1 (스크롤로 프레임 전환)
     right_clicked = Signal(int, int, object)  # (img_x, img_y, QMouseEvent)
+    escape_pressed = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -64,6 +65,8 @@ class ImageViewer(QGraphicsView):
         self._auto_min: float | None = None
         self._auto_max: float | None = None
         self._img_size: tuple[int, int] = (0, 0)
+        self._panning = False
+        self._pan_start = None
 
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
@@ -203,6 +206,11 @@ class ImageViewer(QGraphicsView):
             if pos:
                 self.right_clicked.emit(pos[0], pos[1], event)
             return
+        if event.button() == Qt.MouseButton.MiddleButton:
+            self._panning = True
+            self._pan_start = event.pos()
+            self.viewport().setCursor(Qt.CursorShape.ClosedHandCursor)
+            return
         if event.button() == Qt.MouseButton.LeftButton and self._active_tool:
             pos = self._scene_to_image(self.mapToScene(event.pos()))
             if pos:
@@ -212,6 +220,14 @@ class ImageViewer(QGraphicsView):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
+        if self._panning and self._pan_start is not None:
+            delta = event.pos() - self._pan_start
+            self._pan_start = event.pos()
+            self.horizontalScrollBar().setValue(
+                self.horizontalScrollBar().value() - delta.x())
+            self.verticalScrollBar().setValue(
+                self.verticalScrollBar().value() - delta.y())
+            return
         scene_pos = self.mapToScene(event.pos())
         pos = self._scene_to_image(scene_pos)
         if pos:
@@ -222,6 +238,11 @@ class ImageViewer(QGraphicsView):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.MiddleButton and self._panning:
+            self._panning = False
+            self._pan_start = None
+            self.viewport().unsetCursor()
+            return
         if event.button() == Qt.MouseButton.LeftButton and self._active_tool:
             pos = self._scene_to_image(self.mapToScene(event.pos()))
             if pos:
@@ -243,9 +264,12 @@ class ImageViewer(QGraphicsView):
         event.accept()
 
     def keyPressEvent(self, event):
-        if self._active_tool and self._active_tool.on_key_press(event.key(), event):
-            return
         key = event.key()
+        if key == Qt.Key.Key_Escape:
+            self.escape_pressed.emit()
+            return
+        if self._active_tool and self._active_tool.on_key_press(key, event):
+            return
         if key in (Qt.Key.Key_Plus, Qt.Key.Key_Equal):
             self.scale(1.25, 1.25)
         elif key == Qt.Key.Key_Minus:
