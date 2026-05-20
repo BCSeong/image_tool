@@ -72,9 +72,10 @@ class MainWindow(QMainWindow):
             self._after_load(self._source.frame_count)
 
     @staticmethod
-    def open_stack_window(stack: np.ndarray, title: str) -> MainWindow:
+    def open_stack_window(stack: np.ndarray, title: str,
+                          names: list[str] | None = None) -> MainWindow:
         source = ImageSource()
-        source.load_array(stack, title)
+        source.load_array(stack, title, names=names)
         win = MainWindow(source)
         win.setWindowTitle(f"Image Tool - {title}")
         MainWindow._open_windows.append(win)
@@ -565,21 +566,24 @@ class MainWindow(QMainWindow):
                 return
             crop = img[y0:y1, x0:x1].copy()
             stack = crop[np.newaxis, ...]
+            names = [self._source.frame_name(cfg["frame"])]
             title = f"Crop (frame {cfg['frame']})"
         else:
             start, end = cfg["start"], cfg["end"]
             crops = []
+            names = []
             for i in range(start, end + 1):
                 img = self._source.get_frame(i, copy=False)
                 if img is None:
                     continue
                 crops.append(img[y0:y1, x0:x1].copy())
+                names.append(self._source.frame_name(i))
             if not crops:
                 return
             stack = np.stack(crops)
             title = f"Crop ({len(crops)} frames)"
 
-        MainWindow.open_stack_window(stack, title)
+        MainWindow.open_stack_window(stack, title, names=names)
 
     # ------------------------------------------------------------------ Batch Crop
     def _on_batch_crop(self) -> None:
@@ -614,6 +618,7 @@ class MainWindow(QMainWindow):
         progress.setMinimumDuration(0)
 
         crops = []
+        names = []
         for i in range(n):
             if progress.wasCanceled():
                 break
@@ -629,6 +634,7 @@ class MainWindow(QMainWindow):
             sy1 = min(h, cy0 + rh)
             if sx1 <= sx0 or sy1 <= sy0:
                 crops.append(np.zeros((rh, rw) + extra_dims, dtype=first.dtype))
+                names.append(self._source.frame_name(i))
                 progress.setValue(i + 1)
                 continue
             crop = img[sy0:sy1, sx0:sx1]
@@ -639,6 +645,7 @@ class MainWindow(QMainWindow):
                 padded[py0:py0 + crop.shape[0], px0:px0 + crop.shape[1]] = crop
                 crop = padded
             crops.append(crop)
+            names.append(self._source.frame_name(i))
             progress.setValue(i + 1)
             QApplication.processEvents()
 
@@ -646,7 +653,7 @@ class MainWindow(QMainWindow):
 
         if crops:
             stack = np.stack(crops)
-            MainWindow.open_stack_window(stack, "Batch Crop")
+            MainWindow.open_stack_window(stack, "Batch Crop", names=names)
 
     # ------------------------------------------------------------------ Save
     def _on_save(self) -> None:

@@ -19,6 +19,7 @@ class ImageSource:
         self._folder: Path | None = None
         self._tiff_path: Path | None = None
         self._array_name: str = "Array"
+        self._names: list[str] = []
         self._cache: dict[int, np.ndarray] = {}
 
     @property
@@ -64,6 +65,7 @@ class ImageSource:
         self._stack = None
         self._folder = folder
         self._tiff_path = None
+        self._names = []
         self._cache.clear()
         return len(paths)
 
@@ -74,10 +76,12 @@ class ImageSource:
         self._stack = None
         self._folder = folder or (paths[0].parent if paths else None)
         self._tiff_path = None
+        self._names = []
         self._cache.clear()
         return len(self._paths)
 
-    def load_array(self, stack: np.ndarray, name: str = "Array") -> int:
+    def load_array(self, stack: np.ndarray, name: str = "Array",
+                   names: list[str] | None = None) -> int:
         """메모리 상의 numpy 배열 스택을 로드."""
         if stack.ndim == 2:
             stack = stack[np.newaxis, ...]
@@ -87,6 +91,7 @@ class ImageSource:
         self._folder = None
         self._tiff_path = None
         self._array_name = name
+        self._names = list(names) if names else []
         self._cache.clear()
         return stack.shape[0]
 
@@ -101,8 +106,12 @@ class ImageSource:
         self._stack = stack
         self._folder = None
         self._tiff_path = path
+        n = stack.shape[0]
+        w = len(str(max(n - 1, 0)))
+        stem = path.stem
+        self._names = [f"{stem}_{i:0{w}d}" for i in range(n)]
         self._cache.clear()
-        return stack.shape[0]
+        return n
 
     def get_frame(self, idx: int, copy: bool = True) -> np.ndarray | None:
         """idx번째 프레임을 numpy 배열로 반환.
@@ -120,6 +129,8 @@ class ImageSource:
 
     def frame_name(self, idx: int) -> str:
         """프레임의 표시 이름."""
+        if 0 <= idx < len(self._names):
+            return self._names[idx]
         if self._mode == "folder" and 0 <= idx < len(self._paths):
             return self._paths[idx].name
         return f"Frame {idx:03d}"
@@ -140,4 +151,5 @@ class ImageSource:
         self._folder = None
         self._tiff_path = None
         self._array_name = "Array"
+        self._names = []
         self._cache.clear()
