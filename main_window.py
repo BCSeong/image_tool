@@ -33,6 +33,7 @@ from bc_dialog import BCDialog
 from crop_dialog import CropDialog
 from debayer_widget import DebayerWidget
 from frame_offset_widget import FrameOffsetWidget
+from image_matching_widget import ImageMatchingWidget
 from folder_wizard import FolderWizard
 from image_source import ImageSource
 from save_sequence_dialog import SaveSequenceDialog
@@ -178,6 +179,10 @@ class MainWindow(QMainWindow):
         act_offset.triggered.connect(self._open_offset)
         image_menu.addAction(act_offset)
 
+        act_matching = QAction("Image &Matching...", self)
+        act_matching.triggered.connect(self._open_matching)
+        image_menu.addAction(act_matching)
+
         analyze_menu = menu.addMenu("&Analyze")
 
         act_measure = QAction("&Measure", self)
@@ -258,6 +263,16 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self._offset_dock)
         self._offset_dock.hide()
         self._offset_dock.visibilityChanged.connect(self._on_offset_visibility)
+
+        self._matching_widget: ImageMatchingWidget | None = None
+        self._matching_dock = EnhancedDockWidget("Image Matching", self)
+        self._matching_dock.setAllowedAreas(
+            Qt.DockWidgetArea.LeftDockWidgetArea
+            | Qt.DockWidgetArea.RightDockWidgetArea
+        )
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self._matching_dock)
+        self._matching_dock.hide()
+        self._matching_dock.visibilityChanged.connect(self._on_matching_visibility)
 
         self._measure_widget = MeasureWidget()
         self._measure_dock = EnhancedDockWidget("Measure", self)
@@ -365,6 +380,10 @@ class MainWindow(QMainWindow):
             self._offset_widget.cleanup()
             self._offset_widget = None
             self._offset_dock.hide()
+        if self._matching_widget is not None:
+            self._matching_widget.cleanup()
+            self._matching_widget = None
+            self._matching_dock.hide()
         self._viewer._auto_min = None
         self._viewer._auto_max = None
         self._viewer._display_min = None
@@ -395,6 +414,8 @@ class MainWindow(QMainWindow):
             self._debayer_widget.set_frame_idx(idx)
         if self._offset_widget is not None:
             self._offset_widget.set_frame_idx(idx)
+        if self._matching_widget is not None:
+            self._matching_widget.set_frame_idx(idx)
 
     def _on_frame_scroll(self, delta: int) -> None:
         new_val = self._slider.value() + delta
@@ -479,6 +500,26 @@ class MainWindow(QMainWindow):
             self._offset_widget = None
             idx = self._slider.value()
             self._show_frame(idx)
+
+    # ------------------------------------------------------------------ Image Matching
+    def _open_matching(self) -> None:
+        if not self._source.is_loaded:
+            QMessageBox.warning(self, "Warning", "No image loaded.")
+            return
+        if self._matching_widget is not None:
+            self._matching_widget.cleanup()
+        idx = self._slider.value()
+        self._matching_widget = ImageMatchingWidget(
+            self._viewer, self._source, idx,
+            MainWindow.open_stack_window,
+        )
+        self._matching_dock.setWidget(self._matching_widget)
+        self._matching_dock.show()
+
+    def _on_matching_visibility(self, visible: bool) -> None:
+        if not visible and self._matching_widget is not None:
+            self._matching_widget.cleanup()
+            self._matching_widget = None
 
     # ------------------------------------------------------------------ Select All
     def _on_select_all(self) -> None:
