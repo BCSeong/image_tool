@@ -73,6 +73,13 @@ class MainWindow(QMainWindow):
             self._after_load(self._source.frame_count)
 
     @staticmethod
+    def _new_window() -> MainWindow:
+        win = MainWindow()
+        MainWindow._open_windows.append(win)
+        win.show()
+        return win
+
+    @staticmethod
     def open_stack_window(stack: np.ndarray, title: str,
                           names: list[str] | None = None) -> MainWindow:
         source = ImageSource()
@@ -123,6 +130,13 @@ class MainWindow(QMainWindow):
         menu = self.menuBar()
 
         file_menu = menu.addMenu("&File")
+
+        act_new_window = QAction("&New Window", self)
+        act_new_window.setShortcut(QKeySequence("Ctrl+N"))
+        act_new_window.triggered.connect(self._new_window)
+        file_menu.addAction(act_new_window)
+
+        file_menu.addSeparator()
 
         act_open_folder = QAction("Open &Folder...", self)
         act_open_folder.setShortcut(QKeySequence("Ctrl+O"))
