@@ -700,7 +700,7 @@ class MainWindow(QMainWindow):
         if not self._source.is_loaded:
             return
         n = self._source.frame_count
-        has_names = self._source._mode == "folder"
+        has_names = self._source._mode == "folder" or bool(self._source._names)
         sample_names = (
             [self._source.frame_name(i) for i in range(n)]
             if has_names else None
