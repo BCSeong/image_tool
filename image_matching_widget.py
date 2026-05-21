@@ -7,7 +7,9 @@ from typing import TYPE_CHECKING, Callable
 import cv2
 import numpy as np
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QApplication,
     QButtonGroup,
     QCheckBox,
     QHBoxLayout,
@@ -99,8 +101,20 @@ class ImageMatchingWidget(QWidget):
         self._table.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch
         )
-        self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._table.setEditTriggers(QTableWidget.EditTrigger.DoubleClicked)
+        self._table.cellChanged.connect(self._on_cell_changed)
         layout.addWidget(self._table, stretch=1)
+
+        # -- Copy / Paste --
+        cp_row = QHBoxLayout()
+        self._btn_copy = QPushButton("Copy")
+        self._btn_copy.setEnabled(False)
+        self._btn_copy.clicked.connect(self._copy_table)
+        cp_row.addWidget(self._btn_copy)
+        self._btn_paste = QPushButton("Paste")
+        self._btn_paste.clicked.connect(self._paste_table)
+        cp_row.addWidget(self._btn_paste)
+        layout.addLayout(cp_row)
 
         # -- Apply button --
         self._btn_apply = QPushButton("Apply")
@@ -228,10 +242,13 @@ class ImageMatchingWidget(QWidget):
     def _populate_table(self) -> None:
         if self._results is None:
             return
+        self._table.blockSignals(True)
         self._table.setRowCount(len(self._results))
         for i, r in enumerate(self._results):
             name = self._source.frame_name(i)
-            self._table.setItem(i, 0, QTableWidgetItem(name))
+            name_item = QTableWidgetItem(name)
+            name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self._table.setItem(i, 0, name_item)
             self._table.setItem(i, 1, QTableWidgetItem(f"{r['dx']:.2f}"))
             self._table.setItem(i, 2, QTableWidgetItem(f"{r['dy']:.2f}"))
             self._table.setItem(i, 3, QTableWidgetItem(f"{r['angle']:.3f}"))
@@ -239,6 +256,74 @@ class ImageMatchingWidget(QWidget):
                 for c in range(4):
                     item = self._table.item(i, c)
                     item.setForeground(Qt.GlobalColor.red)
+        self._table.blockSignals(False)
+        self._btn_copy.setEnabled(True)
+
+    def _on_cell_changed(self, row: int, col: int) -> None:
+        if self._results is None or col == 0:
+            return
+        if row >= len(self._results):
+            return
+        item = self._table.item(row, col)
+        if item is None:
+            return
+        try:
+            val = float(item.text())
+        except ValueError:
+            return
+        key = ["", "dx", "dy", "angle"][col]
+        self._results[row][key] = val
+        self._results[row]["ok"] = True
+
+    def _copy_table(self) -> None:
+        if self._results is None:
+            return
+        lines = ["Frame\tdx\tdy\tangle"]
+        for i in range(self._table.rowCount()):
+            cols = [self._table.item(i, c).text() if self._table.item(i, c) else ""
+                    for c in range(4)]
+            lines.append("\t".join(cols))
+        QApplication.clipboard().setText("\n".join(lines))
+        self._status.setText(f"Copied {self._table.rowCount()} rows to clipboard.")
+
+    def _paste_table(self) -> None:
+        text = QApplication.clipboard().text()
+        if not text.strip():
+            return
+        lines = text.strip().split("\n")
+        start = 0
+        first = lines[0].split("\t")
+        if len(first) >= 4 and first[1].strip().lower() == "dx":
+            start = 1
+        results = []
+        self._table.blockSignals(True)
+        self._table.setRowCount(0)
+        for line in lines[start:]:
+            parts = line.split("\t")
+            if len(parts) < 4:
+                continue
+            name = parts[0].strip()
+            try:
+                dx = float(parts[1])
+                dy = float(parts[2])
+                angle = float(parts[3])
+            except ValueError:
+                continue
+            results.append({"dx": dx, "dy": dy, "angle": angle, "ok": True})
+            row = self._table.rowCount()
+            self._table.setRowCount(row + 1)
+            name_item = QTableWidgetItem(name)
+            name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self._table.setItem(row, 0, name_item)
+            self._table.setItem(row, 1, QTableWidgetItem(f"{dx:.2f}"))
+            self._table.setItem(row, 2, QTableWidgetItem(f"{dy:.2f}"))
+            self._table.setItem(row, 3, QTableWidgetItem(f"{angle:.3f}"))
+        self._table.blockSignals(False)
+        if results:
+            self._results = results
+            self._btn_apply.setEnabled(True)
+            self._btn_copy.setEnabled(True)
+            self._status.setText(f"Pasted {len(results)} rows from clipboard.")
 
     # ------------------------------------------------------------------ apply
     def _correct_frame(self, img, dx, dy, angle):
