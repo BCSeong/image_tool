@@ -174,6 +174,10 @@ class BCDialog(QWidget):
         self._init_max = self._data_max
         self._syncing = False
 
+        existing = viewer.get_display_range()
+        if existing is not None:
+            self._data_min, self._data_max = existing
+
         self._pending_mn: float | None = None
         self._pending_mx: float | None = None
         self._debounce = QTimer(self)
@@ -427,7 +431,6 @@ class BCDialog(QWidget):
         self._viewer.set_display_range(self._data_min, self._data_max)
 
     def cleanup(self) -> None:
-        """Dock 닫힐 때 호출: 타이머 정리 + display range 복원."""
+        """Dock 닫힐 때 호출: 타이머 정리. display range는 유지."""
         self._cancel_pending()
         self._debounce.stop()
-        self._viewer.clear_display_range()
