@@ -422,6 +422,8 @@ class MainWindow(QMainWindow):
         if img is None:
             return
         self._viewer.set_image(img)
+        if self._bc_widget is not None:
+            self._bc_widget.set_frame_idx(idx)
         if self._active_tool:
             self._active_tool.on_frame_changed(idx, img)
         if self._debayer_widget is not None:

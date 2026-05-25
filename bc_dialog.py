@@ -208,6 +208,9 @@ class BCDialog(QWidget):
 
         root.addWidget(grp)
 
+        self._lock_check = QCheckBox("Lock display range")
+        root.addWidget(self._lock_check)
+
         self._propagate_check = QCheckBox("Propagate to all slices")
         self._propagate_check.setChecked(True)
         root.addWidget(self._propagate_check)
@@ -405,6 +408,20 @@ class BCDialog(QWidget):
 
         out = ((img.astype(np.float64) - mn) / span).clip(0, 1)
         return out.astype(dtype)
+
+    def set_frame_idx(self, idx: int) -> None:
+        self._frame_idx = idx
+        if self._lock_check.isChecked():
+            return
+        img = self._source.get_frame(idx)
+        if img is None:
+            return
+        self._img = img
+        self._data_min = float(np.nanmin(img))
+        self._data_max = float(np.nanmax(img))
+        self._set_all(self._data_min, self._data_max)
+        self._update_histogram()
+        self._viewer.set_display_range(self._data_min, self._data_max)
 
     def cleanup(self) -> None:
         """Dock 닫힐 때 호출: 타이머 정리 + display range 복원."""
