@@ -43,7 +43,7 @@ from tools.roi_base import RoiToolBase
 from tools.rect_tool import RectTool
 from tools.ellipse_tool import EllipseTool
 from tools.line_tool import LineTool
-from viewer import ImageViewer
+from viewer import ImageViewer, _normalize_to_u8
 
 
 class MainWindow(QMainWindow):
@@ -748,6 +748,7 @@ class MainWindow(QMainWindow):
             idx = self._slider.value()
             img = self._source.get_frame(idx, copy=False)
             if img is not None:
+                img = self._to_saveable(img, p.suffix)
                 if not self._imwrite_safe(p, img, p.suffix):
                     QMessageBox.warning(self, "Error", f"Failed to save: {p.name}")
 
@@ -788,7 +789,7 @@ class MainWindow(QMainWindow):
                 continue
             frame_name = self._source.frame_name(i) if has_names else ""
             p = dlg.make_path(cfg, i, frame_name)
-            ok = self._imwrite_safe(p, img, ext)
+            ok = self._imwrite_safe(p, self._to_saveable(img, ext), ext)
             if ok:
                 saved += 1
             else:
@@ -809,6 +810,16 @@ class MainWindow(QMainWindow):
             )
         else:
             self.statusBar().showMessage(f"Saved {saved} frames.", 5000)
+
+    def _to_saveable(self, img: np.ndarray, ext: str) -> np.ndarray:
+        """PNG/BMP 저장 시 display range를 적용하여 uint8로 변환."""
+        if ext.lower() in (".tif", ".tiff") or img.dtype == np.uint8:
+            return img
+        dr = self._viewer.get_display_range()
+        if dr is not None:
+            return _normalize_to_u8(img, dr[0], dr[1])
+        mn, mx = float(np.nanmin(img)), float(np.nanmax(img))
+        return _normalize_to_u8(img, mn, mx)
 
     @staticmethod
     def _imwrite_safe(path: Path, img: np.ndarray, ext: str) -> bool:

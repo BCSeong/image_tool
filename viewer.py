@@ -114,6 +114,13 @@ class ImageViewer(QGraphicsView):
         self._display_max = max_val
         self.refresh_display()
 
+    def get_display_range(self) -> tuple[float, float] | None:
+        mn = self._display_min if self._display_min is not None else self._auto_min
+        mx = self._display_max if self._display_max is not None else self._auto_max
+        if mn is not None and mx is not None:
+            return mn, mx
+        return None
+
     def clear_display_range(self) -> None:
         self._display_min = None
         self._display_max = None
