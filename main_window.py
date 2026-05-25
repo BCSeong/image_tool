@@ -43,7 +43,7 @@ from tools.roi_base import RoiToolBase
 from tools.rect_tool import RectTool
 from tools.ellipse_tool import EllipseTool
 from tools.line_tool import LineTool
-from viewer import ImageViewer
+from viewer import ImageViewer, _normalize_to_u8
 
 
 class MainWindow(QMainWindow):
@@ -109,8 +109,8 @@ class MainWindow(QMainWindow):
         slider_row = QHBoxLayout()
         slider_row.setContentsMargins(8, 2, 8, 2)
         self._frame_spin = QSpinBox()
-        self._frame_spin.setMinimum(0)
-        self._frame_spin.setMaximum(0)
+        self._frame_spin.setMinimum(1)
+        self._frame_spin.setMaximum(1)
         slider_row.addWidget(self._frame_spin)
         self._slider = QSlider(Qt.Orientation.Horizontal)
         self._slider.setMinimum(0)
@@ -403,9 +403,9 @@ class MainWindow(QMainWindow):
         self._viewer._display_min = None
         self._viewer._display_max = None
         self._slider.setMaximum(max(n - 1, 0))
-        self._frame_spin.setMaximum(max(n - 1, 0))
+        self._frame_spin.setMaximum(max(n, 1))
         self._slider.setValue(0)
-        self._frame_spin.setValue(0)
+        self._frame_spin.setValue(1)
         self._update_frame_label(0)
         self._show_frame(0)
         self._viewer.fit_view()
@@ -422,6 +422,8 @@ class MainWindow(QMainWindow):
         if img is None:
             return
         self._viewer.set_image(img)
+        if self._bc_widget is not None:
+            self._bc_widget.set_frame_idx(idx)
         if self._active_tool:
             self._active_tool.on_frame_changed(idx, img)
         if self._debayer_widget is not None:
@@ -438,11 +440,12 @@ class MainWindow(QMainWindow):
 
     def _on_slider_changed(self, idx: int) -> None:
         self._frame_spin.blockSignals(True)
-        self._frame_spin.setValue(idx)
+        self._frame_spin.setValue(idx + 1)
         self._frame_spin.blockSignals(False)
         self._on_frame_changed(idx)
 
-    def _on_frame_spin_changed(self, idx: int) -> None:
+    def _on_frame_spin_changed(self, display_idx: int) -> None:
+        idx = display_idx - 1
         self._slider.blockSignals(True)
         self._slider.setValue(idx)
         self._slider.blockSignals(False)
@@ -629,27 +632,24 @@ class MainWindow(QMainWindow):
 
         x0, y0, x1, y1 = roi
         if cfg["mode"] == "current":
-            img = self._source.get_frame(cfg["frame"], copy=False)
-            if img is None:
-                return
-            crop = img[y0:y1, x0:x1].copy()
-            stack = crop[np.newaxis, ...]
-            names = [self._source.frame_name(cfg["frame"])]
-            title = f"Crop (frame {cfg['frame']})"
+            indices = [cfg["frame"]]
+        elif cfg["mode"] == "custom":
+            indices = cfg["indices"]
         else:
-            start, end = cfg["start"], cfg["end"]
-            crops = []
-            names = []
-            for i in range(start, end + 1):
-                img = self._source.get_frame(i, copy=False)
-                if img is None:
-                    continue
-                crops.append(img[y0:y1, x0:x1].copy())
-                names.append(self._source.frame_name(i))
-            if not crops:
-                return
-            stack = np.stack(crops)
-            title = f"Crop ({len(crops)} frames)"
+            indices = list(range(cfg["start"], cfg["end"] + 1))
+
+        crops = []
+        names = []
+        for i in indices:
+            img = self._source.get_frame(i, copy=False)
+            if img is None:
+                continue
+            crops.append(img[y0:y1, x0:x1].copy())
+            names.append(self._source.frame_name(i))
+        if not crops:
+            return
+        stack = np.stack(crops)
+        title = f"Crop ({len(crops)} frames)"
 
         MainWindow.open_stack_window(stack, title, names=names)
 
@@ -748,6 +748,7 @@ class MainWindow(QMainWindow):
             idx = self._slider.value()
             img = self._source.get_frame(idx, copy=False)
             if img is not None:
+                img = self._to_saveable(img, p.suffix)
                 if not self._imwrite_safe(p, img, p.suffix):
                     QMessageBox.warning(self, "Error", f"Failed to save: {p.name}")
 
@@ -788,7 +789,7 @@ class MainWindow(QMainWindow):
                 continue
             frame_name = self._source.frame_name(i) if has_names else ""
             p = dlg.make_path(cfg, i, frame_name)
-            ok = self._imwrite_safe(p, img, ext)
+            ok = self._imwrite_safe(p, self._to_saveable(img, ext), ext)
             if ok:
                 saved += 1
             else:
@@ -809,6 +810,16 @@ class MainWindow(QMainWindow):
             )
         else:
             self.statusBar().showMessage(f"Saved {saved} frames.", 5000)
+
+    def _to_saveable(self, img: np.ndarray, ext: str) -> np.ndarray:
+        """PNG/BMP 저장 시 display range를 적용하여 uint8로 변환."""
+        if ext.lower() in (".tif", ".tiff") or img.dtype == np.uint8:
+            return img
+        dr = self._viewer.get_display_range()
+        if dr is not None:
+            return _normalize_to_u8(img, dr[0], dr[1])
+        mn, mx = float(np.nanmin(img)), float(np.nanmax(img))
+        return _normalize_to_u8(img, mn, mx)
 
     @staticmethod
     def _imwrite_safe(path: Path, img: np.ndarray, ext: str) -> bool:
@@ -842,7 +853,9 @@ class MainWindow(QMainWindow):
 
         if frames:
             stack = np.stack(frames)
-            tifffile.imwrite(str(path), stack)
+            names = [self._source.frame_name(i) for i in range(len(frames))]
+            metadata = {"frame_names": names}
+            tifffile.imwrite(str(path), stack, description=str(metadata))
 
     # ------------------------------------------------------------------ 우클릭
     def _on_right_click(self, x: int, y: int, event: object) -> None:

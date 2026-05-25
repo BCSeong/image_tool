@@ -66,8 +66,8 @@ class ImageMatchingWidget(QWidget):
         ref_row = QHBoxLayout()
         ref_row.addWidget(QLabel("Reference frame:"))
         self._spin_ref = QSpinBox()
-        self._spin_ref.setRange(0, max(source.frame_count - 1, 0))
-        self._spin_ref.setValue(0)
+        self._spin_ref.setRange(1, max(source.frame_count, 1))
+        self._spin_ref.setValue(1)
         ref_row.addWidget(self._spin_ref)
         ref_row.addStretch()
         layout.addLayout(ref_row)
@@ -195,7 +195,7 @@ class ImageMatchingWidget(QWidget):
 
     def _estimate(self) -> None:
         n = self._source.frame_count
-        ref_idx = self._spin_ref.value()
+        ref_idx = self._spin_ref.value() - 1
         ref_img = self._source.get_frame(ref_idx, copy=False)
         if ref_img is None:
             return

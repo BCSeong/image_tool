@@ -88,8 +88,6 @@ class ImageViewer(QGraphicsView):
     def set_image(self, img: np.ndarray) -> None:
         """numpy 배열을 QPixmap으로 변환하여 표시. 8/16bit gray, BGR 지원."""
         self._raw_image = img
-        self._auto_min = None
-        self._auto_max = None
         display = self._to_display(img)
         h, w = display.shape[:2]
 
@@ -113,6 +111,13 @@ class ImageViewer(QGraphicsView):
         self._display_min = min_val
         self._display_max = max_val
         self.refresh_display()
+
+    def get_display_range(self) -> tuple[float, float] | None:
+        mn = self._display_min if self._display_min is not None else self._auto_min
+        mx = self._display_max if self._display_max is not None else self._auto_max
+        if mn is not None and mx is not None:
+            return mn, mx
+        return None
 
     def clear_display_range(self) -> None:
         self._display_min = None

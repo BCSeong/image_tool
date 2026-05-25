@@ -128,13 +128,13 @@ class FolderWizard(QDialog):
         hr = QHBoxLayout(grp_range)
         hr.addWidget(QLabel("Start:"))
         self._start_spin = QSpinBox()
-        self._start_spin.setMinimum(0)
-        self._start_spin.setMaximum(0)
+        self._start_spin.setMinimum(1)
+        self._start_spin.setMaximum(1)
         hr.addWidget(self._start_spin)
         hr.addWidget(QLabel("End:"))
         self._end_spin = QSpinBox()
-        self._end_spin.setMinimum(0)
-        self._end_spin.setMaximum(0)
+        self._end_spin.setMinimum(1)
+        self._end_spin.setMaximum(1)
         hr.addWidget(self._end_spin)
         hr.addWidget(QLabel("Step:"))
         self._step_spin = QSpinBox()
@@ -234,10 +234,10 @@ class FolderWizard(QDialog):
         self._matched = all_files
         n = len(all_files)
 
-        self._start_spin.setMaximum(max(n - 1, 0))
-        self._end_spin.setMaximum(max(n - 1, 0))
-        self._start_spin.setValue(0)
-        self._end_spin.setValue(max(n - 1, 0))
+        self._start_spin.setMaximum(max(n, 1))
+        self._end_spin.setMaximum(max(n, 1))
+        self._start_spin.setValue(1)
+        self._end_spin.setValue(max(n, 1))
 
         self._update_preview()
 
@@ -249,8 +249,8 @@ class FolderWizard(QDialog):
         self._update_preview()
 
     def _update_preview(self) -> None:
-        s = self._start_spin.value()
-        e = self._end_spin.value()
+        s = self._start_spin.value() - 1
+        e = self._end_spin.value() - 1
         step = self._step_spin.value()
         subset = self._matched[s:e + 1:step] if self._matched else []
 
@@ -277,8 +277,8 @@ class FolderWizard(QDialog):
     def _on_file_selected(self, row: int) -> None:
         if not self._preview_check.isChecked():
             return
-        s = self._start_spin.value()
-        e = self._end_spin.value()
+        s = self._start_spin.value() - 1
+        e = self._end_spin.value() - 1
         step = self._step_spin.value()
         subset = self._matched[s:e + 1:step]
         if row < 0 or row >= len(subset):
@@ -325,8 +325,8 @@ class FolderWizard(QDialog):
     def get_config(self) -> FolderLoadConfig | None:
         if not self._matched:
             return None
-        s = self._start_spin.value()
-        e = self._end_spin.value()
+        s = self._start_spin.value() - 1
+        e = self._end_spin.value() - 1
         step = self._step_spin.value()
         subset = self._matched[s:e + 1:step]
         sort_map = {0: "name", 1: "natural", 2: "date"}

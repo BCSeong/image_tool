@@ -112,15 +112,15 @@ class BatchCropDialog(QDialog):
         slider_row = QHBoxLayout()
         slider_row.addWidget(QLabel("Frame:"))
         self._frame_spin = QSpinBox()
-        self._frame_spin.setRange(0, max(frame_count - 1, 0))
-        self._frame_spin.setValue(0)
+        self._frame_spin.setRange(1, max(frame_count, 1))
+        self._frame_spin.setValue(1)
         slider_row.addWidget(self._frame_spin)
         self._slider = QSlider(Qt.Orientation.Horizontal)
         self._slider.setMinimum(0)
         self._slider.setMaximum(max(frame_count - 1, 0))
         self._slider.setTracking(True)
         slider_row.addWidget(self._slider, stretch=1)
-        self._frame_label = QLabel(f"/ {max(frame_count - 1, 0)}")
+        self._frame_label = QLabel(f"/ {frame_count}")
         slider_row.addWidget(self._frame_label)
         layout.addLayout(slider_row)
 
@@ -197,7 +197,7 @@ class BatchCropDialog(QDialog):
             QRectF(cx, cy, rw, rh), pen
         )
 
-        self._info_label.setText(f"Frame {idx}: ROI at ({cx}, {cy})")
+        self._info_label.setText(f"Frame {idx + 1}: ROI at ({cx}, {cy})")
 
     def _to_display_u8(self, img: np.ndarray) -> np.ndarray:
         if img.dtype == np.uint8:
@@ -215,11 +215,12 @@ class BatchCropDialog(QDialog):
     # ------------------------------------------------------------------ slots
     def _on_slider_changed(self, idx: int) -> None:
         self._frame_spin.blockSignals(True)
-        self._frame_spin.setValue(idx)
+        self._frame_spin.setValue(idx + 1)
         self._frame_spin.blockSignals(False)
         self._show_frame(idx)
 
-    def _on_spin_changed(self, idx: int) -> None:
+    def _on_spin_changed(self, display_idx: int) -> None:
+        idx = display_idx - 1
         self._slider.blockSignals(True)
         self._slider.setValue(idx)
         self._slider.blockSignals(False)

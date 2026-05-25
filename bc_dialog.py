@@ -174,6 +174,10 @@ class BCDialog(QWidget):
         self._init_max = self._data_max
         self._syncing = False
 
+        existing = viewer.get_display_range()
+        if existing is not None:
+            self._data_min, self._data_max = existing
+
         self._pending_mn: float | None = None
         self._pending_mx: float | None = None
         self._debounce = QTimer(self)
@@ -184,6 +188,7 @@ class BCDialog(QWidget):
         self._build_ui()
         self._connect()
         self._update_histogram()
+        self._viewer.set_display_range(self._data_min, self._data_max)
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
@@ -207,6 +212,10 @@ class BCDialog(QWidget):
         self._row_contrast = _SliderRow("Contrast:", vg, 0, (rng_hi - rng_lo) * 2, width, d)
 
         root.addWidget(grp)
+
+        self._lock_check = QCheckBox("Lock display range")
+        self._lock_check.setChecked(True)
+        root.addWidget(self._lock_check)
 
         self._propagate_check = QCheckBox("Propagate to all slices")
         self._propagate_check.setChecked(True)
@@ -356,9 +365,10 @@ class BCDialog(QWidget):
             if img is not None:
                 self._source.set_frame(indices[0], self._remap(img, mn, mx))
 
-        # display range를 None으로 설정하되 refresh는 하지 않음
         self._viewer._display_min = None
         self._viewer._display_max = None
+        self._viewer._auto_min = None
+        self._viewer._auto_max = None
 
         new_img = self._source.get_frame(self._frame_idx)
         if new_img is not None:
@@ -406,8 +416,21 @@ class BCDialog(QWidget):
         out = ((img.astype(np.float64) - mn) / span).clip(0, 1)
         return out.astype(dtype)
 
+    def set_frame_idx(self, idx: int) -> None:
+        self._frame_idx = idx
+        if self._lock_check.isChecked():
+            return
+        img = self._source.get_frame(idx)
+        if img is None:
+            return
+        self._img = img
+        self._data_min = float(np.nanmin(img))
+        self._data_max = float(np.nanmax(img))
+        self._set_all(self._data_min, self._data_max)
+        self._update_histogram()
+        self._viewer.set_display_range(self._data_min, self._data_max)
+
     def cleanup(self) -> None:
-        """Dock 닫힐 때 호출: 타이머 정리 + display range 복원."""
+        """Dock 닫힐 때 호출: 타이머 정리. display range는 유지."""
         self._cancel_pending()
         self._debounce.stop()
-        self._viewer.clear_display_range()
