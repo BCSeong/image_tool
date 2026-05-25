@@ -184,6 +184,7 @@ class BCDialog(QWidget):
         self._build_ui()
         self._connect()
         self._update_histogram()
+        self._viewer.set_display_range(self._data_min, self._data_max)
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
