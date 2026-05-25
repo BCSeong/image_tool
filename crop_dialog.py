@@ -16,8 +16,8 @@ from PySide6.QtWidgets import (
 )
 
 
-def parse_indices(text: str, max_idx: int) -> list[int] | None:
-    """쉼표/공백 구분 인덱스 및 범위(start-end) 파싱. 유효하지 않으면 None."""
+def parse_indices(text: str, frame_count: int) -> list[int] | None:
+    """1-based 인덱스 파싱 → 0-based 리스트 반환. 유효하지 않으면 None."""
     indices: list[int] = []
     for token in text.replace(",", " ").split():
         token = token.strip()
@@ -29,17 +29,17 @@ def parse_indices(text: str, max_idx: int) -> list[int] | None:
                 a, b = int(parts[0]), int(parts[1])
             except ValueError:
                 return None
-            if a > b or a < 0 or b > max_idx:
+            if a > b or a < 1 or b > frame_count:
                 return None
-            indices.extend(range(a, b + 1))
+            indices.extend(range(a - 1, b))
         else:
             try:
                 v = int(token)
             except ValueError:
                 return None
-            if v < 0 or v > max_idx:
+            if v < 1 or v > frame_count:
                 return None
-            indices.append(v)
+            indices.append(v - 1)
     return indices if indices else None
 
 
@@ -80,13 +80,13 @@ class CropDialog(QDialog):
         range_row = QHBoxLayout()
         range_row.addWidget(self._radio_range)
         self._spin_start = QSpinBox()
-        self._spin_start.setRange(0, max(frame_count - 1, 0))
-        self._spin_start.setValue(0)
+        self._spin_start.setRange(1, max(frame_count, 1))
+        self._spin_start.setValue(1)
         range_row.addWidget(self._spin_start)
         range_row.addWidget(QLabel("to"))
         self._spin_end = QSpinBox()
-        self._spin_end.setRange(0, max(frame_count - 1, 0))
-        self._spin_end.setValue(max(frame_count - 1, 0))
+        self._spin_end.setRange(1, max(frame_count, 1))
+        self._spin_end.setValue(max(frame_count, 1))
         range_row.addWidget(self._spin_end)
         self._range_label = QLabel(f"({frame_count} frames)")
         range_row.addWidget(self._range_label)
@@ -96,7 +96,7 @@ class CropDialog(QDialog):
         custom_row = QHBoxLayout()
         custom_row.addWidget(self._radio_custom)
         self._edit_indices = QLineEdit()
-        self._edit_indices.setPlaceholderText("e.g. 0,1,3,5-8,10")
+        self._edit_indices.setPlaceholderText("e.g. 1,2,4,6-9,11")
         custom_row.addWidget(self._edit_indices, stretch=1)
         self._custom_label = QLabel("")
         custom_row.addWidget(self._custom_label)
@@ -151,7 +151,7 @@ class CropDialog(QDialog):
         if not text:
             self._custom_label.setText("")
             return
-        indices = parse_indices(text, self._frame_count - 1)
+        indices = parse_indices(text, self._frame_count)
         if indices is None:
             self._custom_label.setText("(invalid)")
             self._custom_label.setStyleSheet("color: red;")
@@ -168,7 +168,7 @@ class CropDialog(QDialog):
             }
         if mode_id == 2:
             indices = parse_indices(
-                self._edit_indices.text(), self._frame_count - 1
+                self._edit_indices.text(), self._frame_count
             )
             if indices:
                 return {
@@ -181,6 +181,6 @@ class CropDialog(QDialog):
             }
         return {
             "mode": "range",
-            "start": self._spin_start.value(),
-            "end": self._spin_end.value(),
+            "start": self._spin_start.value() - 1,
+            "end": self._spin_end.value() - 1,
         }

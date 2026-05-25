@@ -109,8 +109,8 @@ class MainWindow(QMainWindow):
         slider_row = QHBoxLayout()
         slider_row.setContentsMargins(8, 2, 8, 2)
         self._frame_spin = QSpinBox()
-        self._frame_spin.setMinimum(0)
-        self._frame_spin.setMaximum(0)
+        self._frame_spin.setMinimum(1)
+        self._frame_spin.setMaximum(1)
         slider_row.addWidget(self._frame_spin)
         self._slider = QSlider(Qt.Orientation.Horizontal)
         self._slider.setMinimum(0)
@@ -403,9 +403,9 @@ class MainWindow(QMainWindow):
         self._viewer._display_min = None
         self._viewer._display_max = None
         self._slider.setMaximum(max(n - 1, 0))
-        self._frame_spin.setMaximum(max(n - 1, 0))
+        self._frame_spin.setMaximum(max(n, 1))
         self._slider.setValue(0)
-        self._frame_spin.setValue(0)
+        self._frame_spin.setValue(1)
         self._update_frame_label(0)
         self._show_frame(0)
         self._viewer.fit_view()
@@ -440,11 +440,12 @@ class MainWindow(QMainWindow):
 
     def _on_slider_changed(self, idx: int) -> None:
         self._frame_spin.blockSignals(True)
-        self._frame_spin.setValue(idx)
+        self._frame_spin.setValue(idx + 1)
         self._frame_spin.blockSignals(False)
         self._on_frame_changed(idx)
 
-    def _on_frame_spin_changed(self, idx: int) -> None:
+    def _on_frame_spin_changed(self, display_idx: int) -> None:
+        idx = display_idx - 1
         self._slider.blockSignals(True)
         self._slider.setValue(idx)
         self._slider.blockSignals(False)
