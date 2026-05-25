@@ -209,6 +209,7 @@ class BCDialog(QWidget):
         root.addWidget(grp)
 
         self._lock_check = QCheckBox("Lock display range")
+        self._lock_check.setChecked(True)
         root.addWidget(self._lock_check)
 
         self._propagate_check = QCheckBox("Propagate to all slices")
