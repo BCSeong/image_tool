@@ -631,27 +631,24 @@ class MainWindow(QMainWindow):
 
         x0, y0, x1, y1 = roi
         if cfg["mode"] == "current":
-            img = self._source.get_frame(cfg["frame"], copy=False)
-            if img is None:
-                return
-            crop = img[y0:y1, x0:x1].copy()
-            stack = crop[np.newaxis, ...]
-            names = [self._source.frame_name(cfg["frame"])]
-            title = f"Crop (frame {cfg['frame']})"
+            indices = [cfg["frame"]]
+        elif cfg["mode"] == "custom":
+            indices = cfg["indices"]
         else:
-            start, end = cfg["start"], cfg["end"]
-            crops = []
-            names = []
-            for i in range(start, end + 1):
-                img = self._source.get_frame(i, copy=False)
-                if img is None:
-                    continue
-                crops.append(img[y0:y1, x0:x1].copy())
-                names.append(self._source.frame_name(i))
-            if not crops:
-                return
-            stack = np.stack(crops)
-            title = f"Crop ({len(crops)} frames)"
+            indices = list(range(cfg["start"], cfg["end"] + 1))
+
+        crops = []
+        names = []
+        for i in indices:
+            img = self._source.get_frame(i, copy=False)
+            if img is None:
+                continue
+            crops.append(img[y0:y1, x0:x1].copy())
+            names.append(self._source.frame_name(i))
+        if not crops:
+            return
+        stack = np.stack(crops)
+        title = f"Crop ({len(crops)} frames)"
 
         MainWindow.open_stack_window(stack, title, names=names)
 
