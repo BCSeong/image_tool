@@ -88,8 +88,6 @@ class ImageViewer(QGraphicsView):
     def set_image(self, img: np.ndarray) -> None:
         """numpy 배열을 QPixmap으로 변환하여 표시. 8/16bit gray, BGR 지원."""
         self._raw_image = img
-        self._auto_min = None
-        self._auto_max = None
         display = self._to_display(img)
         h, w = display.shape[:2]
 

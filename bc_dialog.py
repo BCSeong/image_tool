@@ -361,9 +361,10 @@ class BCDialog(QWidget):
             if img is not None:
                 self._source.set_frame(indices[0], self._remap(img, mn, mx))
 
-        # display range를 None으로 설정하되 refresh는 하지 않음
         self._viewer._display_min = None
         self._viewer._display_max = None
+        self._viewer._auto_min = None
+        self._viewer._auto_max = None
 
         new_img = self._source.get_frame(self._frame_idx)
         if new_img is not None:
