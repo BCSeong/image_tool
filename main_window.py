@@ -855,7 +855,9 @@ class MainWindow(QMainWindow):
 
         if frames:
             stack = np.stack(frames)
-            tifffile.imwrite(str(path), stack)
+            names = [self._source.frame_name(i) for i in range(len(frames))]
+            metadata = {"frame_names": names}
+            tifffile.imwrite(str(path), stack, description=str(metadata))
 
     # ------------------------------------------------------------------ 우클릭
     def _on_right_click(self, x: int, y: int, event: object) -> None:

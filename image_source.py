@@ -97,6 +97,8 @@ class ImageSource:
 
     def load_tiff_stack(self, path: str | Path) -> int:
         """Multi-frame TIFF 파일 로드."""
+        import ast
+
         path = Path(path)
         stack = tifffile.imread(str(path))
         if stack.ndim == 2:
@@ -107,11 +109,32 @@ class ImageSource:
         self._folder = None
         self._tiff_path = path
         n = stack.shape[0]
-        w = len(str(max(n - 1, 0)))
-        stem = path.stem
-        self._names = [f"{stem}_{i:0{w}d}" for i in range(n)]
+
+        saved_names = self._read_tiff_frame_names(path, n)
+        if saved_names is not None:
+            self._names = saved_names
+        else:
+            w = len(str(max(n - 1, 0)))
+            stem = path.stem
+            self._names = [f"{stem}_{i:0{w}d}" for i in range(n)]
         self._cache.clear()
         return n
+
+    @staticmethod
+    def _read_tiff_frame_names(path: Path, n: int) -> list[str] | None:
+        import ast
+        try:
+            with tifffile.TiffFile(str(path)) as tif:
+                desc = tif.pages[0].description
+                if not desc:
+                    return None
+                meta = ast.literal_eval(desc)
+                names = meta.get("frame_names")
+                if isinstance(names, list) and len(names) == n:
+                    return [str(s) for s in names]
+        except Exception:
+            pass
+        return None
 
     def get_frame(self, idx: int, copy: bool = True) -> np.ndarray | None:
         """idx번째 프레임을 numpy 배열로 반환.
