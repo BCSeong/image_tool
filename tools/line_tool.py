@@ -362,6 +362,28 @@ class LineTool(BaseTool):
 
         if self._length_label:
             self._length_label.setText(f"Length: {length:.1f} px")
+        self._update_coord_spins()
+
+    def _update_coord_spins(self) -> None:
+        if not self._coord_spins:
+            return
+        for sp in self._coord_spins.values():
+            sp.blockSignals(True)
+        self._coord_spins["x0"].setValue(self._x0)
+        self._coord_spins["y0"].setValue(self._y0)
+        self._coord_spins["x1"].setValue(self._x1)
+        self._coord_spins["y1"].setValue(self._y1)
+        for sp in self._coord_spins.values():
+            sp.blockSignals(False)
+
+    def _on_coord_spin_changed(self) -> None:
+        self._x0 = self._coord_spins["x0"].value()
+        self._y0 = self._coord_spins["y0"].value()
+        self._x1 = self._coord_spins["x1"].value()
+        self._y1 = self._coord_spins["y1"].value()
+        self._has_line = True
+        self._update_line()
+        self._compute_and_display()
 
     def _apply_axis_settings(self, ax) -> None:
         if self._chk_auto_x.isChecked():
@@ -703,6 +725,19 @@ class LineTool(BaseTool):
 
         self._length_label = QLabel("Length: —")
         left_layout.addWidget(self._length_label)
+
+        # -- Line Coordinates --
+        from PySide6.QtWidgets import QFormLayout
+        self._coord_spins: dict[str, QSpinBox] = {}
+        coord_form = QFormLayout()
+        for key in ("x0", "y0", "x1", "y1"):
+            sp = QSpinBox()
+            sp.setRange(-99999, 99999)
+            sp.setKeyboardTracking(False)
+            sp.valueChanged.connect(self._on_coord_spin_changed)
+            self._coord_spins[key] = sp
+            coord_form.addRow(f"{key.upper()}:", sp)
+        left_layout.addLayout(coord_form)
 
         # -- Axis Limits --
         grp_axis = QGroupBox("Axis Limits")
