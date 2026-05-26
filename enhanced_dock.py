@@ -12,6 +12,12 @@ from PySide6.QtWidgets import (
 )
 
 _BTN_STYLE = "font-size: 14px; padding: 0px 4px;"
+_DOCK_STYLE = (
+    "EnhancedDockWidget { border-top: 1px solid palette(mid); }"
+)
+
+
+_MAX_DOCKED_WIDTH = 380
 
 
 class EnhancedDockWidget(QDockWidget):
@@ -20,6 +26,8 @@ class EnhancedDockWidget(QDockWidget):
         super().__init__(title, parent)
         self._closable = closable
         self._maximized = False
+        self.setMaximumWidth(_MAX_DOCKED_WIDTH)
+        self.setStyleSheet(_DOCK_STYLE)
         self._build_titlebar(title)
         self.topLevelChanged.connect(self._on_top_level_changed)
 
@@ -86,10 +94,12 @@ class EnhancedDockWidget(QDockWidget):
         if floating:
             self._btn_float.setText("↙")
             self._btn_float.setToolTip("Dock")
+            self.setMaximumWidth(16777215)
         else:
             self._maximized = False
             self._btn_float.setText("↗")
             self._btn_float.setToolTip("Float")
+            self.setMaximumWidth(_MAX_DOCKED_WIDTH)
         self._update_maximize_btn()
 
     def _update_maximize_btn(self) -> None:

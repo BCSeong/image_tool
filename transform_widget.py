@@ -55,6 +55,7 @@ class TransformWidget(QWidget):
 
         # -- Frame label --
         self._frame_label = QLabel()
+        self._frame_label.setWordWrap(True)
         self._update_frame_label()
         root.addWidget(self._frame_label)
 
