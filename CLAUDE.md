@@ -30,7 +30,7 @@ enhanced_dock.py     — EnhancedDockWidget: float/maximize/close 버튼이 있�
 |------|-------|---------|
 | bc_dialog.py | BCDialog(QWidget) | dock panel, cleanup() 패턴 |
 | debayer_widget.py | DebayerWidget(QWidget) | dock panel, set_frame_idx(), cleanup() 패턴 |
-| frame_offset_widget.py | FrameOffsetWidget(QWidget) | dock panel, set_frame_idx(), cleanup() 패턴 |
+| transform_widget.py | TransformWidget(QWidget) | dock panel, rotate+shift, slider+spinbox, grid overlay |
 
 ### Dock Panel Pattern (BCDialog 패턴)
 

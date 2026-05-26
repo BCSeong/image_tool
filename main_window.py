@@ -32,8 +32,8 @@ from plugins import ALL_PLUGINS
 from bc_dialog import BCDialog
 from crop_dialog import CropDialog
 from debayer_widget import DebayerWidget
-from frame_offset_widget import FrameOffsetWidget
 from image_matching_widget import ImageMatchingWidget
+from transform_widget import TransformWidget
 from folder_wizard import FolderWizard
 from image_source import ImageSource
 from save_sequence_dialog import SaveSequenceDialog
@@ -60,7 +60,7 @@ class MainWindow(QMainWindow):
         self._tool_actions: list[QAction] = []
         self._bc_widget: BCDialog | None = None
         self._debayer_widget: DebayerWidget | None = None
-        self._offset_widget: FrameOffsetWidget | None = None
+        self._transform_widget: TransformWidget | None = None
 
         self._build_ui()
         self._build_menu()
@@ -189,9 +189,9 @@ class MainWindow(QMainWindow):
         adjust_menu.addAction(act_demosaic)
 
         image_menu.addSeparator()
-        act_offset = QAction("Frame &Offset...", self)
-        act_offset.triggered.connect(self._open_offset)
-        image_menu.addAction(act_offset)
+        act_transform = QAction("&Transform...", self)
+        act_transform.triggered.connect(self._open_transform)
+        image_menu.addAction(act_transform)
 
         act_matching = QAction("Image &Matching...", self)
         act_matching.triggered.connect(self._open_matching)
@@ -269,14 +269,14 @@ class MainWindow(QMainWindow):
         self._demosaic_dock.hide()
         self._demosaic_dock.visibilityChanged.connect(self._on_demosaic_visibility)
 
-        self._offset_dock = EnhancedDockWidget("Frame Offset", self)
-        self._offset_dock.setAllowedAreas(
+        self._transform_dock = EnhancedDockWidget("Transform", self)
+        self._transform_dock.setAllowedAreas(
             Qt.DockWidgetArea.LeftDockWidgetArea
             | Qt.DockWidgetArea.RightDockWidgetArea
         )
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self._offset_dock)
-        self._offset_dock.hide()
-        self._offset_dock.visibilityChanged.connect(self._on_offset_visibility)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self._transform_dock)
+        self._transform_dock.hide()
+        self._transform_dock.visibilityChanged.connect(self._on_transform_visibility)
 
         self._matching_widget: ImageMatchingWidget | None = None
         self._matching_dock = EnhancedDockWidget("Image Matching", self)
@@ -390,10 +390,10 @@ class MainWindow(QMainWindow):
             self._debayer_widget.cleanup()
             self._debayer_widget = None
             self._demosaic_dock.hide()
-        if self._offset_widget is not None:
-            self._offset_widget.cleanup()
-            self._offset_widget = None
-            self._offset_dock.hide()
+        if self._transform_widget is not None:
+            self._transform_widget.cleanup()
+            self._transform_widget = None
+            self._transform_dock.hide()
         if self._matching_widget is not None:
             self._matching_widget.cleanup()
             self._matching_widget = None
@@ -428,8 +428,8 @@ class MainWindow(QMainWindow):
             self._active_tool.on_frame_changed(idx, img)
         if self._debayer_widget is not None:
             self._debayer_widget.set_frame_idx(idx)
-        if self._offset_widget is not None:
-            self._offset_widget.set_frame_idx(idx)
+        if self._transform_widget is not None:
+            self._transform_widget.set_frame_idx(idx)
         if self._matching_widget is not None:
             self._matching_widget.set_frame_idx(idx)
 
@@ -499,22 +499,24 @@ class MainWindow(QMainWindow):
             idx = self._slider.value()
             self._show_frame(idx)
 
-    # ------------------------------------------------------------------ Frame Offset
-    def _open_offset(self) -> None:
+    # ------------------------------------------------------------------ Transform
+    def _open_transform(self) -> None:
         if not self._source.is_loaded:
             QMessageBox.warning(self, "Warning", "No image loaded.")
             return
-        if self._offset_widget is not None:
-            self._offset_widget.cleanup()
+        if self._transform_widget is not None:
+            self._transform_widget.cleanup()
         idx = self._slider.value()
-        self._offset_widget = FrameOffsetWidget(self._viewer, self._source, idx)
-        self._offset_dock.setWidget(self._offset_widget)
-        self._offset_dock.show()
+        self._transform_widget = TransformWidget(
+            self._viewer, self._source, idx,
+        )
+        self._transform_dock.setWidget(self._transform_widget)
+        self._transform_dock.show()
 
-    def _on_offset_visibility(self, visible: bool) -> None:
-        if not visible and self._offset_widget is not None:
-            self._offset_widget.cleanup()
-            self._offset_widget = None
+    def _on_transform_visibility(self, visible: bool) -> None:
+        if not visible and self._transform_widget is not None:
+            self._transform_widget.cleanup()
+            self._transform_widget = None
             idx = self._slider.value()
             self._show_frame(idx)
 
