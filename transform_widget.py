@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 
 if TYPE_CHECKING:
     from image_source import ImageSource
+    from undo_manager import UndoManager
     from viewer import ImageViewer
 
 
@@ -35,12 +36,14 @@ class TransformWidget(QWidget):
         viewer: ImageViewer,
         source: ImageSource,
         frame_idx: int,
+        undo_mgr: UndoManager | None = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
         self._viewer = viewer
         self._source = source
         self._frame_idx = frame_idx
+        self._undo_mgr = undo_mgr
         self._original: np.ndarray | None = source.get_frame(frame_idx, copy=True)
         self._grid_items: list[QGraphicsLineItem] = []
         self._applied = False
@@ -340,12 +343,16 @@ class TransformWidget(QWidget):
                 img = self._source.get_frame(i, copy=True)
                 if img is None:
                     continue
+                if self._undo_mgr is not None:
+                    self._undo_mgr.push(i, img, "Transform")
                 self._source.set_frame(i, self._transform_image(img, angle, dx, dy))
             msg = f"Applied to {n} frames."
         else:
             img = self._source.get_frame(self._frame_idx, copy=True)
             if img is None:
                 return
+            if self._undo_mgr is not None:
+                self._undo_mgr.push(self._frame_idx, img, "Transform")
             self._source.set_frame(
                 self._frame_idx, self._transform_image(img, angle, dx, dy),
             )

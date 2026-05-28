@@ -37,6 +37,7 @@ class DebayerWidget(QWidget):
         viewer: ImageViewer,
         source: ImageSource,
         frame_idx: int,
+        undo_mgr=None,
         parent=None,
     ) -> None:
         super().__init__(parent)
@@ -44,6 +45,7 @@ class DebayerWidget(QWidget):
         self._viewer = viewer
         self._source = source
         self._frame_idx = frame_idx
+        self._undo_mgr = undo_mgr
         self._previewing = False
 
         self._debounce = QTimer(self)
@@ -219,6 +221,8 @@ class DebayerWidget(QWidget):
                     break
                 img = self._source.get_frame(i, copy=False)
                 if img is not None:
+                    if self._undo_mgr is not None:
+                        self._undo_mgr.push(i, img.copy(), "Demosaic")
                     self._source.set_frame(i, self._debayer_frame(img))
                 progress.setValue(count + 1)
                 QApplication.processEvents()
@@ -226,6 +230,8 @@ class DebayerWidget(QWidget):
         else:
             img = self._source.get_frame(indices[0], copy=False)
             if img is not None:
+                if self._undo_mgr is not None:
+                    self._undo_mgr.push(indices[0], img.copy(), "Demosaic")
                 self._source.set_frame(indices[0], self._debayer_frame(img))
 
         self._chk_preview.setChecked(False)

@@ -34,6 +34,7 @@ from crop_dialog import CropDialog
 from debayer_widget import DebayerWidget
 from image_matching_widget import ImageMatchingWidget
 from transform_widget import TransformWidget
+from undo_manager import UndoManager
 from folder_wizard import FolderWizard
 from image_source import ImageSource
 from save_sequence_dialog import SaveSequenceDialog
@@ -43,6 +44,7 @@ from tools.roi_base import RoiToolBase
 from tools.rect_tool import RectTool
 from tools.ellipse_tool import EllipseTool
 from tools.line_tool import LineTool
+from tools.spline_tool import SplineTool
 from viewer import ImageViewer, _normalize_to_u8
 
 
@@ -61,6 +63,7 @@ class MainWindow(QMainWindow):
         self._bc_widget: BCDialog | None = None
         self._debayer_widget: DebayerWidget | None = None
         self._transform_widget: TransformWidget | None = None
+        self._undo_mgr = UndoManager(self._source)
 
         self._build_ui()
         self._build_menu()
@@ -170,6 +173,12 @@ class MainWindow(QMainWindow):
         act_quit.triggered.connect(self.close)
         file_menu.addAction(act_quit)
 
+        edit_menu = menu.addMenu("&Edit")
+        self._act_undo = QAction("&Undo", self)
+        self._act_undo.setShortcut(QKeySequence("Ctrl+Z"))
+        self._act_undo.triggered.connect(self._on_undo)
+        edit_menu.addAction(self._act_undo)
+
         image_menu = menu.addMenu("&Image")
 
         act_crop = QAction("&Crop...", self)
@@ -247,6 +256,7 @@ class MainWindow(QMainWindow):
     def _build_dock(self) -> None:
         self._dock = EnhancedDockWidget("Tool Settings", self)
         self._dock.setAllowedAreas(Qt.DockWidgetArea.RightDockWidgetArea)
+        self._dock.setMaximumWidth(16777215)
         self._dock.setWidget(QWidget())
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._dock)
         self._dock.hide()
@@ -310,6 +320,7 @@ class MainWindow(QMainWindow):
         self.register_tool(RectTool(self._viewer))
         self.register_tool(EllipseTool(self._viewer))
         self.register_tool(LineTool(self._viewer, self._source))
+        self.register_tool(SplineTool(self._viewer, self._source))
 
     # ------------------------------------------------------------------ Tool 등록
     def register_tool(self, tool: BaseTool) -> None:
@@ -356,6 +367,17 @@ class MainWindow(QMainWindow):
             self._viewer.set_active_tool(None)
             self._dock.hide()
 
+    # ------------------------------------------------------------------ Undo
+    def _on_undo(self) -> None:
+        if isinstance(self._active_tool, SplineTool) and not self._active_tool._finalized:
+            self._active_tool._undo_last_point()
+            return
+        result = self._undo_mgr.undo()
+        if result is None:
+            return
+        frame_idx, _ = result
+        self._slider.setValue(frame_idx)
+
     # ------------------------------------------------------------------ File 열기
     def _open_folder(self) -> None:
         wizard = FolderWizard(self)
@@ -382,6 +404,7 @@ class MainWindow(QMainWindow):
         self._after_load(n)
 
     def _after_load(self, n: int) -> None:
+        self._undo_mgr.clear()
         if self._bc_widget is not None:
             self._bc_widget.cleanup()
             self._bc_widget = None
@@ -469,7 +492,7 @@ class MainWindow(QMainWindow):
         if self._bc_widget is not None:
             self._bc_widget.cleanup()
         idx = self._slider.value()
-        self._bc_widget = BCDialog(self._viewer, self._source, idx)
+        self._bc_widget = BCDialog(self._viewer, self._source, idx, self._undo_mgr)
         self._bc_dock.setWidget(self._bc_widget)
         self._bc_dock.show()
 
@@ -488,7 +511,7 @@ class MainWindow(QMainWindow):
         if self._debayer_widget is not None:
             self._debayer_widget.cleanup()
         idx = self._slider.value()
-        self._debayer_widget = DebayerWidget(self._viewer, self._source, idx)
+        self._debayer_widget = DebayerWidget(self._viewer, self._source, idx, self._undo_mgr)
         self._demosaic_dock.setWidget(self._debayer_widget)
         self._demosaic_dock.show()
 
@@ -508,7 +531,7 @@ class MainWindow(QMainWindow):
             self._transform_widget.cleanup()
         idx = self._slider.value()
         self._transform_widget = TransformWidget(
-            self._viewer, self._source, idx,
+            self._viewer, self._source, idx, self._undo_mgr,
         )
         self._transform_dock.setWidget(self._transform_widget)
         self._transform_dock.show()
@@ -531,6 +554,7 @@ class MainWindow(QMainWindow):
         self._matching_widget = ImageMatchingWidget(
             self._viewer, self._source, idx,
             MainWindow.open_stack_window,
+            self._undo_mgr,
         )
         self._matching_dock.setWidget(self._matching_widget)
         self._matching_dock.show()

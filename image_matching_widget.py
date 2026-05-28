@@ -38,6 +38,7 @@ class ImageMatchingWidget(QWidget):
         source: ImageSource,
         frame_idx: int,
         open_stack_cb: Callable[[np.ndarray, str, list[str] | None], None],
+        undo_mgr=None,
         parent=None,
     ) -> None:
         super().__init__(parent)
@@ -45,6 +46,7 @@ class ImageMatchingWidget(QWidget):
         self._source = source
         self._frame_idx = frame_idx
         self._open_stack_cb = open_stack_cb
+        self._undo_mgr = undo_mgr
         self._results: list[dict] | None = None
 
         layout = QVBoxLayout(self)
@@ -366,6 +368,10 @@ class ImageMatchingWidget(QWidget):
                 corrected.append(img)
                 names.append(self._source.frame_name(i))
             else:
+                if self._undo_mgr is not None:
+                    old = self._source.get_frame(i, copy=True)
+                    if old is not None:
+                        self._undo_mgr.push(i, old, "Matching")
                 self._source.set_frame(i, img)
             progress.setValue(i + 1)
         progress.close()

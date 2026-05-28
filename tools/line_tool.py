@@ -7,13 +7,14 @@ from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPen, QColor
+from PySide6.QtGui import QBrush, QPen, QColor
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QDialog,
     QDoubleSpinBox,
     QFileDialog,
+    QGraphicsEllipseItem,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -149,6 +150,7 @@ class _SaveAllDialog(QDialog):
 class LineTool(BaseTool):
 
     _HIT_TOLERANCE = 25
+    _HANDLE_HALF = 5
 
     def __init__(self, viewer: ImageViewer, source=None) -> None:
         self._viewer = viewer
@@ -159,6 +161,8 @@ class LineTool(BaseTool):
         self._move_ox = self._move_oy = 0
         self._has_line = False
         self._line_item = None
+        self._handle_items: list[QGraphicsEllipseItem] = []
+        self._dragging_handle: int = -1
         self._frame_idx = 0
         self._panel: QWidget | None = None
         self._canvas: FigureCanvasQTAgg | None = None
@@ -208,6 +212,10 @@ class LineTool(BaseTool):
 
     # -- 마우스 --
     def on_mouse_press(self, x: int, y: int, event) -> bool:
+        h_idx = self._handle_hit_test(x, y)
+        if h_idx >= 0:
+            self._dragging_handle = h_idx
+            return True
         if self._has_line and self._hit_test(x, y):
             self._moving = True
             self._move_ox, self._move_oy = x, y
@@ -219,9 +227,21 @@ class LineTool(BaseTool):
         if self._line_item is not None:
             self._viewer.scene_ref.removeItem(self._line_item)
             self._line_item = None
+        self._remove_handles()
         return True
 
     def on_mouse_move(self, x: int, y: int, event) -> None:
+        if self._dragging_handle >= 0:
+            if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+                if self._dragging_handle == 1:
+                    x, y = self._snap_endpoint(x, y)
+            if self._dragging_handle == 0:
+                self._x0, self._y0 = x, y
+            else:
+                self._x1, self._y1 = x, y
+            self._update_line()
+            self._compute_and_display()
+            return
         if self._moving:
             dx, dy = x - self._move_ox, y - self._move_oy
             self._shift_all(dx, dy)
@@ -238,6 +258,10 @@ class LineTool(BaseTool):
         self._compute_and_display()
 
     def on_mouse_release(self, x: int, y: int, event) -> None:
+        if self._dragging_handle >= 0:
+            self._dragging_handle = -1
+            self._compute_and_display()
+            return
         if self._moving:
             self._moving = False
             self._compute_and_display()
@@ -277,6 +301,7 @@ class LineTool(BaseTool):
             self._compute_and_display()
 
     def deactivate(self) -> None:
+        self._remove_handles()
         self._line_item = None
         self._has_line = False
 
@@ -288,6 +313,50 @@ class LineTool(BaseTool):
             )
         else:
             self._line_item.setLine(self._x0, self._y0, self._x1, self._y1)
+        self._update_handles()
+
+    # -- 핸들 --
+    def _scene_pixel_size(self) -> float:
+        t = self._viewer.transform()
+        return 1.0 / t.m11() if t.m11() != 0 else 1.0
+
+    def _update_handles(self) -> None:
+        if not self._has_line and not self._drawing:
+            self._remove_handles()
+            return
+        positions = [(self._x0, self._y0), (self._x1, self._y1)]
+        ps = self._scene_pixel_size()
+        half = self._HANDLE_HALF * ps
+        scene = self._viewer.scene_ref
+        pen = QPen(QColor(255, 255, 0), 1)
+        pen.setCosmetic(True)
+        brush = QBrush(QColor(255, 255, 255))
+        while len(self._handle_items) < 2:
+            item = QGraphicsEllipseItem()
+            item.setPen(pen)
+            item.setBrush(brush)
+            item.setZValue(100)
+            scene.addItem(item)
+            self._handle_items.append(item)
+        for i, (cx, cy) in enumerate(positions):
+            self._handle_items[i].setRect(cx - half, cy - half, half * 2, half * 2)
+            self._handle_items[i].setVisible(True)
+
+    def _remove_handles(self) -> None:
+        scene = self._viewer.scene_ref
+        for item in self._handle_items:
+            scene.removeItem(item)
+        self._handle_items.clear()
+
+    def _handle_hit_test(self, x: int, y: int) -> int:
+        if not self._has_line:
+            return -1
+        ps = self._scene_pixel_size()
+        radius = (self._HANDLE_HALF + 2) * ps
+        for i, (cx, cy) in enumerate([(self._x0, self._y0), (self._x1, self._y1)]):
+            if math.hypot(x - cx, y - cy) <= radius:
+                return i
+        return -1
 
     # -- profile 계산 --
     def _get_profile(self) -> tuple[np.ndarray, np.ndarray] | None:

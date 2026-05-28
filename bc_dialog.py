@@ -159,12 +159,13 @@ class BCDialog(QWidget):
     display_changed = Signal(float, float)
 
     def __init__(self, viewer: ImageViewer, source: ImageSource,
-                 frame_idx: int, parent=None) -> None:
+                 frame_idx: int, undo_mgr=None, parent=None) -> None:
         super().__init__(parent)
         self.setMinimumWidth(420)
         self._viewer = viewer
         self._source = source
         self._frame_idx = frame_idx
+        self._undo_mgr = undo_mgr
 
         img = source.get_frame(frame_idx)
         self._img = img
@@ -355,6 +356,8 @@ class BCDialog(QWidget):
                     break
                 img = self._source.get_frame(i)
                 if img is not None:
+                    if self._undo_mgr is not None:
+                        self._undo_mgr.push(i, img, "B/C")
                     self._source.set_frame(i, self._remap(img, mn, mx))
                 progress.setValue(count + 1)
                 QApplication.processEvents()
@@ -363,6 +366,8 @@ class BCDialog(QWidget):
         else:
             img = self._source.get_frame(indices[0])
             if img is not None:
+                if self._undo_mgr is not None:
+                    self._undo_mgr.push(indices[0], img, "B/C")
                 self._source.set_frame(indices[0], self._remap(img, mn, mx))
 
         self._viewer._display_min = None
